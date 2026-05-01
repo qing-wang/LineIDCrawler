@@ -53,6 +53,13 @@ namespace LineIDAnalyzer.Forms
                     return;
                 }
 
+                // Stage 1 結果先記錄，供使用者在 Console Log 觀察
+                var hasKeyword = LineIDAnalyzer.Business.LineIDAnalyzer.ContainsLineKeyword(inputText);
+                if (hasKeyword)
+                    AppLogger.Debug("Stage 1：偵測到 LINE 相關關鍵字，進入 LLM 分析。");
+                else
+                    AppLogger.Debug("Stage 1：未偵測到 LINE 相關關鍵字，略過 LLM 分析。");
+
                 var modelName = _db.GetSetting("model_name") ?? "gpt-4o-mini";
                 var settings  = new AppSettings { ApiKey = apiKey, ModelName = modelName };
                 var analyzer  = new LineIDAnalyzer.Business.LineIDAnalyzer(settings);

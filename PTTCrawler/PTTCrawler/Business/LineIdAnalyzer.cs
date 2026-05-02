@@ -43,6 +43,15 @@ LINE ID 格式規則：
 - 例如：「加我 line: abc123」、「我的賴是 john_doe」、「line帳號 john-123」。
 - 即使字串符合格式，若文字沒有 LINE 相關脈絡，不可認定為 LINE ID。
 - 關鍵字與 ID 之間可能有任意距離，請根據整篇文字的語意判斷。
+- 「提及未來可能分享 LINE」或「說可以用 LINE 聯絡但未提供 ID」，不可認定為含有 LINE ID。
+  例如：「有緣分的話，我也會給你我的line！」→ 只是表示意願，沒有 ID，應輸出 false。
+- 若字串旁邊的文字明確標示它屬於其他平台（例如 PTT 帳號、IG 帳號、站內信帳號等），
+  即使文章中也提到了 LINE，該字串仍不可認定為 LINE ID。
+  例如：「板友A帳號（As7Xk）」或「PTT ID：hamadak」中的字串是 PTT 帳號，非 LINE ID。
+- 若文章只是「描述他人的 LINE ID 被散佈」，但並未在文中明確列出該 LINE ID，
+  應輸出 false。（例如：「信件內容就是我的 line ID」→ 提及被散佈，但未揭露該 ID）
+- 若 extractedIds 為空，則 hasLineId 必須為 false。
+- 「line」、「LINE」、「Line」、「賴」本身是平台名稱關鍵字，絕對不可被當作 LINE ID 抽取出來。
 
 Few-Shot 範例：
 輸入：「有問題加我 LINE，帳號是 john_doe123，謝謝」
@@ -62,6 +71,15 @@ Few-Shot 範例：
 
 輸入：「可以LINE我有真相 nexus0814」
 輸出：{""hasLineId"": true, ""extractedIds"": [""nexus0814""]}
+
+輸入：「有緣分的話，我也會給你我的line！希望能找到好的緣分。」
+輸出：{""hasLineId"": false, ""extractedIds"": []}
+
+輸入：「歡迎傳訊或用LINE聯絡我，期待你的來信。」
+輸出：{""hasLineId"": false, ""extractedIds"": []}
+
+輸入：「板友A帳號（As7Xk）傳了不當站內信，板友H帳號（hamadak）把我的line ID到處散佈，已報警處理。」
+輸出：{""hasLineId"": false, ""extractedIds"": []}
 
 請嚴格以 JSON 格式回應，不要加上任何解釋文字：
 {
@@ -169,7 +187,19 @@ Few-Shot 範例：
                         if (!string.IsNullOrWhiteSpace(id)) extractedIds.Add(id);
                     }
 
-                return new AnalysisResult { HasLineId = hasLineId, ExtractedIds = extractedIds, RawResponse = rawText };
+                // 後處理：移除平台名稱關鍵字本身被誤抽為 ID 的情況
+                var platformKeywords = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+                    { "line", "賴" };
+                extractedIds.RemoveAll(id => platformKeywords.Contains(id));
+
+                return new AnalysisResult
+                {
+                    // 後處理防線：extractedIds 為空時 hasLineId 強制為 false，
+                    // 避免 LLM 回傳「hasLineId:true 但 extractedIds:[]」的矛盾結果。
+                    HasLineId    = hasLineId && extractedIds.Count > 0,
+                    ExtractedIds = extractedIds,
+                    RawResponse  = rawText
+                };
             }
             catch (Exception ex)
             {

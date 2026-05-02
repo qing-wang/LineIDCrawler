@@ -11,6 +11,7 @@ namespace LineIDAnalyzer.Forms
         private readonly DatabaseManager _db;
         private CancellationTokenSource? _analysisCts;
         private CancellationTokenSource? _testRunCts;
+        private CancellationTokenSource? _profileAnalysisCts;
 
         public LineIDAnalyzerUI()
         {
@@ -136,7 +137,86 @@ namespace LineIDAnalyzer.Forms
         {
             _analysisCts?.Cancel();
             _testRunCts?.Cancel();
+            _profileAnalysisCts?.Cancel();
             AppLogger.Info("使用者取消操作。");
+        }
+
+        private async void btnProfileAnalyze_Click(object sender, EventArgs e)
+        {
+            var body = tbInputText.Text.Trim();
+            if (string.IsNullOrWhiteSpace(body))
+            {
+                AppLogger.Info("使用者未輸入任何文字，人物分析已中止。");
+                MessageBox.Show("請先輸入待分析的文字（內文）。", "提示",
+                    MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+
+            SetProfileAnalyzingState(true);
+            AppLogger.Info("開始執行人物分析…");
+
+            try
+            {
+                var apiKey = _db.LoadApiKey();
+                if (string.IsNullOrEmpty(apiKey))
+                {
+                    AppLogger.Error("尚未設定 API Key，請先至「設定」頁面輸入。");
+                    MessageBox.Show("尚未設定 API Key，請先至「設定」頁面輸入。", "缺少設定",
+                        MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+
+                var modelName = _db.GetSetting("model_name") ?? "gpt-4o-mini";
+                var settings  = new AppSettings { ApiKey = apiKey, ModelName = modelName };
+                var analyzer  = new LineIDAnalyzer.Business.AuthorProfileAnalyzer(settings);
+
+                var request = new AuthorProfileRequest
+                {
+                    Title    = string.IsNullOrWhiteSpace(tbTitle.Text.Trim())    ? null : tbTitle.Text.Trim(),
+                    AuthorId = string.IsNullOrWhiteSpace(tbAuthorId.Text.Trim()) ? null : tbAuthorId.Text.Trim(),
+                    Nickname = string.IsNullOrWhiteSpace(tbNickname.Text.Trim()) ? null : tbNickname.Text.Trim(),
+                    Body     = body
+                };
+
+                _profileAnalysisCts = new CancellationTokenSource();
+                var profile = await analyzer.AnalyzeAsync(request, _profileAnalysisCts.Token);
+
+                if (!profile.IsSuccess)
+                {
+                    AppLogger.Error($"人物分析失敗：{profile.ErrorMessage}");
+                    SetStatusText($"人物分析失敗：{profile.ErrorMessage}", Color.Red);
+                    return;
+                }
+
+                _db.SaveProfileHistory(request, profile);
+                AppLogger.Info("人物分析完成，開啟結果視窗。");
+                SetStatusText("人物分析完成。", Color.DarkGreen);
+
+                using var form = new AuthorProfileResultForm(profile);
+                form.ShowDialog(this);
+            }
+            catch (Exception ex)
+            {
+                AppLogger.Error("人物分析過程中發生未預期的例外", ex);
+                SetStatusText("人物分析時發生錯誤，請查看系統日誌。", Color.Red);
+            }
+            finally
+            {
+                _profileAnalysisCts?.Dispose();
+                _profileAnalysisCts = null;
+                SetProfileAnalyzingState(false);
+            }
+        }
+
+        private void SetProfileAnalyzingState(bool isAnalyzing)
+        {
+            btnProfileAnalyze.Enabled = !isAnalyzing;
+            btnAnalyze.Enabled        = !isAnalyzing;
+            btnRunTests.Enabled       = !isAnalyzing;
+            btnCancelAnalysis.Enabled = isAnalyzing;
+
+            if (isAnalyzing)
+                SetStatusText("人物分析中，請稍候…", Color.DarkBlue);
         }
 
         private async void btnRunTests_Click(object sender, EventArgs e)
@@ -245,6 +325,7 @@ namespace LineIDAnalyzer.Forms
             AppLogger.Info("應用程式關閉。");
             _analysisCts?.Cancel();
             _testRunCts?.Cancel();
+            _profileAnalysisCts?.Cancel();
             _db.Dispose();
             base.OnFormClosing(e);
         }

@@ -17,6 +17,7 @@ namespace PTTCrawler.Forms
             lblId        = new Label();
             lblIdValue   = new Label();
             btnOpenUrl   = new Button();
+            btnProfileAnalyze = new Button();
             lblAuthor    = new Label();
             lblAuthorValue   = new Label();
             lblBoard     = new Label();
@@ -53,6 +54,11 @@ namespace PTTCrawler.Forms
             btnOpenUrl.Location = new Point(320, 7);
             btnOpenUrl.Click   += btnOpenUrl_Click;
 
+            btnProfileAnalyze.Text     = "人物分析";
+            btnProfileAnalyze.Size     = new Size(90, 22);
+            btnProfileAnalyze.Location = new Point(420, 7);
+            btnProfileAnalyze.Click   += btnProfileAnalyze_Click;
+
             // row 1: 作者
             lblAuthor.Text     = "作者：";
             lblAuthor.Location = new Point(labelX, 10 + rowH);
@@ -88,7 +94,7 @@ namespace PTTCrawler.Forms
             lblPostTimeValue.AutoSize = true;
 
             pnlMeta.Controls.AddRange(new Control[] {
-                lblId, lblIdValue, btnOpenUrl,
+                lblId, lblIdValue, btnOpenUrl, btnProfileAnalyze,
                 lblAuthor, lblAuthorValue,
                 lblBoard, lblBoardValue,
                 lblTitle, lblTitleValue,
@@ -130,6 +136,7 @@ namespace PTTCrawler.Forms
         private Label   lblId;
         private Label   lblIdValue;
         private Button  btnOpenUrl;
+        private Button  btnProfileAnalyze;
         private Label   lblAuthor;
         private Label   lblAuthorValue;
         private Label   lblBoard;

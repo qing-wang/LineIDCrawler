@@ -168,7 +168,7 @@ namespace PTTCrawler.Forms
             var post = _db.GetPost(id);
             if (post == null) return;
 
-            using var form = new PostViewForm(post);
+            using var form = new PostViewForm(post, _db);
             form.ShowDialog(this);
         }
 

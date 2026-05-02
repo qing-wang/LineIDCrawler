@@ -70,6 +70,29 @@ namespace PTTCrawler.Data
                 CREATE TABLE IF NOT EXISTS app_settings (
                     key   TEXT PRIMARY KEY,
                     value TEXT NOT NULL
+                );
+
+                CREATE TABLE IF NOT EXISTS profile_history (
+                    id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+                    analyzed_at         TEXT    NOT NULL,
+                    post_id             TEXT,
+                    input_title         TEXT,
+                    input_author_id     TEXT,
+                    input_nickname      TEXT,
+                    input_body          TEXT    NOT NULL,
+                    gender              TEXT,
+                    gender_source       TEXT,
+                    age                 TEXT,
+                    age_source          TEXT,
+                    residential_area    TEXT,
+                    area_source         TEXT,
+                    interests           TEXT,
+                    interests_source    TEXT,
+                    relationship_status TEXT,
+                    relationship_source TEXT,
+                    occupation          TEXT,
+                    occupation_source   TEXT,
+                    raw_response        TEXT
                 );";
             cmd.ExecuteNonQuery();
 
@@ -502,6 +525,50 @@ namespace PTTCrawler.Data
             using var reader = cmd.ExecuteReader();
             while (reader.Read()) list.Add(MapPost(reader));
             return list;
+        }
+
+        // ── 人物分析歷史（profile_history）──────────────────────
+
+        /// <summary>儲存一筆人物分析歷史記錄。</summary>
+        public void SaveProfileHistory(string? postId, AuthorProfileRequest request, AuthorProfile profile)
+        {
+            using var conn = OpenConnection();
+            using var cmd  = conn.CreateCommand();
+            cmd.CommandText = @"
+                INSERT INTO profile_history (
+                    analyzed_at, post_id, input_title, input_author_id, input_nickname, input_body,
+                    gender, gender_source, age, age_source,
+                    residential_area, area_source,
+                    interests, interests_source,
+                    relationship_status, relationship_source,
+                    occupation, occupation_source, raw_response)
+                VALUES (
+                    $at, $postId, $title, $authorId, $nick, $body,
+                    $gender, $genderSrc, $age, $ageSrc,
+                    $area, $areaSrc,
+                    $interests, $intSrc,
+                    $rel, $relSrc,
+                    $occ, $occSrc, $raw);";
+            cmd.Parameters.AddWithValue("$at",       DateTime.Now.ToString("o"));
+            cmd.Parameters.AddWithValue("$postId",   (object?)postId           ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("$title",    (object?)request.Title    ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("$authorId", (object?)request.AuthorId ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("$nick",     (object?)request.Nickname ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("$body",     request.Body);
+            cmd.Parameters.AddWithValue("$gender",   (object?)profile.Gender.Value             ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("$genderSrc",profile.Gender.Source.ToString());
+            cmd.Parameters.AddWithValue("$age",      (object?)profile.Age.Value                ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("$ageSrc",   profile.Age.Source.ToString());
+            cmd.Parameters.AddWithValue("$area",     (object?)profile.ResidentialArea.Value    ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("$areaSrc",  profile.ResidentialArea.Source.ToString());
+            cmd.Parameters.AddWithValue("$interests",(object?)profile.Interests.Value          ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("$intSrc",   profile.Interests.Source.ToString());
+            cmd.Parameters.AddWithValue("$rel",      (object?)profile.RelationshipStatus.Value ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("$relSrc",   profile.RelationshipStatus.Source.ToString());
+            cmd.Parameters.AddWithValue("$occ",      (object?)profile.Occupation.Value         ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("$occSrc",   profile.Occupation.Source.ToString());
+            cmd.Parameters.AddWithValue("$raw",      profile.RawResponse);
+            cmd.ExecuteNonQuery();
         }
 
         public void Dispose()

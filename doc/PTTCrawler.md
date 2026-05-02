@@ -206,3 +206,8 @@
             - 點選報告中的貼文後要能開啟貼文檢視表單以便察看貼文
     * 有任何我遺漏、你覺得需要加上的功能，再跟我建議。另外，有任何沒考慮周到的地方，也請你補充。
 
+> C:\Users\USER\work\LineIDCrawler\LineIDAnalyzer\testcases\nolineid\2.txt 分析結果說有 Line ID，但沒分析出來，而內文也其實沒有。
+
+> C:\Users\USER\work\LineIDCrawler\LineIDAnalyzer\testcases\nolineid\3.txt 分析結果有含兩個 Line ID，但其中提到的 ID 是 PTT 上的 ID 而非 Line 的 ID。
+
+> C:\Users\USER\work\LineIDCrawler\LineIDAnalyzer\testcases\nolineid\3.txt 不含 Line ID，但分析結果為含 Line ID，且 Line ID 為 "line"

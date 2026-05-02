@@ -239,7 +239,7 @@ namespace PTTCrawler.Forms
             if (string.IsNullOrEmpty(id)) return;
             var post = _db.GetPost(id);
             if (post == null) return;
-            using var f = new PostViewForm(post);
+            using var f = new PostViewForm(post, _db);
             f.ShowDialog(this);
         }
 

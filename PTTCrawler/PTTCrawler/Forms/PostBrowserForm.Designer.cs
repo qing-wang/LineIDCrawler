@@ -22,6 +22,7 @@ namespace PTTCrawler.Forms
             rbAscending  = new RadioButton();
             rbDescending = new RadioButton();
             btnLoad      = new Button();
+            btnAnalyze   = new Button();
             dgvPosts     = new DataGridView();
             pnlPaging    = new Panel();
             btnFirst     = new Button();
@@ -41,7 +42,7 @@ namespace PTTCrawler.Forms
             pnlFilter.Padding = new Padding(8, 6, 8, 4);
             pnlFilter.Controls.AddRange(new Control[] {
                 rbByBoard, cbBoards, rbByTask, cbTasks,
-                lblSort, rbAscending, rbDescending, btnLoad
+                lblSort, rbAscending, rbDescending, btnLoad, btnAnalyze
             });
 
             // Row 1: 依看版
@@ -82,6 +83,11 @@ namespace PTTCrawler.Forms
             btnLoad.Size     = new Size(70, 26);
             btnLoad.Location = new Point(240, 36);
             btnLoad.Click   += btnLoad_Click;
+
+            btnAnalyze.Text     = "分析 Line ID";
+            btnAnalyze.Size     = new Size(100, 26);
+            btnAnalyze.Location = new Point(320, 36);
+            btnAnalyze.Click   += btnAnalyze_Click;
 
             // ── dgvPosts ──────────────────────────────────────
             dgvPosts.Dock                  = DockStyle.Fill;
@@ -156,6 +162,7 @@ namespace PTTCrawler.Forms
         private RadioButton     rbAscending;
         private RadioButton     rbDescending;
         private Button          btnLoad;
+        private Button          btnAnalyze;
         private DataGridView    dgvPosts;
         private Panel           pnlPaging;
         private Button          btnFirst;

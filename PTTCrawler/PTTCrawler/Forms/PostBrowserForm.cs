@@ -12,7 +12,8 @@ namespace PTTCrawler.Forms
         private int    _currentPage;
         private int    _totalPages;
         private int    _totalCount;
-        private bool   _ascending = true;   // 預設由舊到新
+        private bool   _ascending = true;
+        private List<Post> _currentPagePosts = new();
 
         public PostBrowserForm(DatabaseManager db)
         {
@@ -87,19 +88,18 @@ namespace PTTCrawler.Forms
 
         private void LoadPage()
         {
-            List<Post> posts;
-
             if (rbByBoard.Checked)
             {
                 if (cbBoards.SelectedItem == null) return;
-                posts = _db.GetPostsByBoard(cbBoards.SelectedItem.ToString()!, _currentPage, PageSize, _ascending);
+                _currentPagePosts = _db.GetPostsByBoard(cbBoards.SelectedItem.ToString()!, _currentPage, PageSize, _ascending);
             }
             else
             {
                 if (cbTasks.SelectedItem == null) return;
                 var task = ((TaskComboItem)cbTasks.SelectedItem).Task;
-                posts = _db.GetPostsByTask(task.Id, _currentPage, PageSize, _ascending);
+                _currentPagePosts = _db.GetPostsByTask(task.Id, _currentPage, PageSize, _ascending);
             }
+            var posts = _currentPagePosts;
 
             dgvPosts.DataSource = posts.Select(p => new
             {
@@ -170,6 +170,28 @@ namespace PTTCrawler.Forms
 
             using var form = new PostViewForm(post);
             form.ShowDialog(this);
+        }
+
+        // ── 分析 Line ID ──────────────────────────────────────
+
+        private void btnAnalyze_Click(object sender, EventArgs e)
+        {
+            var settings = _db.LoadAppSettings();
+            if (string.IsNullOrEmpty(settings.ApiKey))
+            {
+                var r = MessageBox.Show(
+                    "尚未設定 ChatGPT API Key，請先至「設定」頁面輸入。\n是否立即前往設定？",
+                    "未設定 API Key", MessageBoxButtons.YesNo, MessageBoxIcon.Warning);
+                return;  // 使用者需切換到主表單去設定，此處僅提示
+            }
+
+            string? boardFilter  = rbByBoard.Checked ? cbBoards.SelectedItem?.ToString() : null;
+            int     taskIdFilter = (!rbByBoard.Checked && cbTasks.SelectedItem is TaskComboItem tci)
+                                   ? tci.Task.Id : 0;
+
+            var form = new AnalyzeLineIdForm(_db, settings, new List<Post>(_currentPagePosts),
+                                             boardFilter, taskIdFilter);
+            form.Show(this);
         }
 
         // ── 載入時初始化為最末頁 ──────────────────────────────

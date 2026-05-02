@@ -1,4 +1,6 @@
 using Microsoft.Data.Sqlite;
+using System.Security.Cryptography;
+using System.Text;
 using PTTCrawler.Models;
 
 namespace PTTCrawler.Data
@@ -64,6 +66,10 @@ namespace PTTCrawler.Data
                     PRIMARY KEY (task_id, post_id),
                     FOREIGN KEY (task_id) REFERENCES crawl_tasks(id),
                     FOREIGN KEY (post_id) REFERENCES posts(id)
+                );
+                CREATE TABLE IF NOT EXISTS app_settings (
+                    key   TEXT PRIMARY KEY,
+                    value TEXT NOT NULL
                 );";
             cmd.ExecuteNonQuery();
 
@@ -389,6 +395,113 @@ namespace PTTCrawler.Data
             cmd.Parameters.AddWithValue("@id", id);
             using var reader = cmd.ExecuteReader();
             return reader.Read() ? MapPost(reader) : null;
+        }
+
+        // ── app_settings / API Key ────────────────────────────
+
+        public void SaveSetting(string key, string value)
+        {
+            using var conn = OpenConnection();
+            using var cmd  = conn.CreateCommand();
+            cmd.CommandText = @"
+                INSERT INTO app_settings (key, value) VALUES (@key, @value)
+                ON CONFLICT(key) DO UPDATE SET value = excluded.value;";
+            cmd.Parameters.AddWithValue("@key",   key);
+            cmd.Parameters.AddWithValue("@value", value);
+            cmd.ExecuteNonQuery();
+        }
+
+        public string? GetSetting(string key)
+        {
+            using var conn = OpenConnection();
+            using var cmd  = conn.CreateCommand();
+            cmd.CommandText = "SELECT value FROM app_settings WHERE key=@key;";
+            cmd.Parameters.AddWithValue("@key", key);
+            using var reader = cmd.ExecuteReader();
+            return reader.Read() ? reader.GetString(0) : null;
+        }
+
+        public void SaveApiKey(string plainText)
+        {
+            var encrypted = EncryptString(plainText);
+            SaveSetting("api_key", encrypted);
+        }
+
+        public string? LoadApiKey()
+        {
+            var encrypted = GetSetting("api_key");
+            return encrypted == null ? null : TryDecryptString(encrypted);
+        }
+
+        public AppSettings LoadAppSettings()
+        {
+            return new AppSettings
+            {
+                ApiKey         = LoadApiKey() ?? string.Empty,
+                ModelName      = GetSetting("model_name")      ?? "gpt-4o-mini",
+                TimeoutSeconds = int.TryParse(GetSetting("timeout_seconds"), out var t) ? t : 60
+            };
+        }
+
+        public void SaveAppSettings(AppSettings s)
+        {
+            if (!string.IsNullOrWhiteSpace(s.ApiKey)) SaveApiKey(s.ApiKey);
+            SaveSetting("model_name",      s.ModelName);
+            SaveSetting("timeout_seconds", s.TimeoutSeconds.ToString());
+        }
+
+        private static string EncryptString(string plain)
+        {
+            var bytes = Encoding.UTF8.GetBytes(plain);
+            var enc   = ProtectedData.Protect(bytes, null, DataProtectionScope.CurrentUser);
+            return Convert.ToBase64String(enc);
+        }
+
+        private static string? TryDecryptString(string cipher)
+        {
+            try
+            {
+                var bytes = Convert.FromBase64String(cipher);
+                var dec   = ProtectedData.Unprotect(bytes, null, DataProtectionScope.CurrentUser);
+                return Encoding.UTF8.GetString(dec);
+            }
+            catch { return null; }
+        }
+
+        // ── 分析用：全量貼文查詢（不分頁）────────────────────
+
+        public List<Post> GetAllPostsByBoard(string board, bool ascending)
+        {
+            var list  = new List<Post>();
+            var order = ascending ? "ASC" : "DESC";
+            using var conn = OpenConnection();
+            using var cmd  = conn.CreateCommand();
+            cmd.CommandText = $@"
+                SELECT id,author_id,author_nick,board,title,post_time,content,crawled_at
+                FROM posts WHERE board=@board
+                ORDER BY COALESCE(post_time, crawled_at) {order};";
+            cmd.Parameters.AddWithValue("@board", board);
+            using var reader = cmd.ExecuteReader();
+            while (reader.Read()) list.Add(MapPost(reader));
+            return list;
+        }
+
+        public List<Post> GetAllPostsByTask(int taskId, bool ascending)
+        {
+            var list  = new List<Post>();
+            var order = ascending ? "ASC" : "DESC";
+            using var conn = OpenConnection();
+            using var cmd  = conn.CreateCommand();
+            cmd.CommandText = $@"
+                SELECT p.id,p.author_id,p.author_nick,p.board,p.title,p.post_time,p.content,p.crawled_at
+                FROM posts p
+                INNER JOIN task_posts tp ON tp.post_id = p.id
+                WHERE tp.task_id=@tid
+                ORDER BY COALESCE(p.post_time, p.crawled_at) {order};";
+            cmd.Parameters.AddWithValue("@tid", taskId);
+            using var reader = cmd.ExecuteReader();
+            while (reader.Read()) list.Add(MapPost(reader));
+            return list;
         }
 
         public void Dispose()

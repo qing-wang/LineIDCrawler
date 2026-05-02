@@ -16,6 +16,7 @@ namespace PTTCrawler.Forms
             pnlButtons     = new Panel();
             btnCrawlTasks  = new Button();
             btnViewPosts   = new Button();
+            btnSettings    = new Button();
             lblConsoleLog  = new Label();
             tbConsoleLog   = new RichTextBox();
             statusStrip    = new StatusStrip();
@@ -28,6 +29,7 @@ namespace PTTCrawler.Forms
             // ── pnlButtons ────────────────────────────────────
             pnlButtons.Controls.Add(btnCrawlTasks);
             pnlButtons.Controls.Add(btnViewPosts);
+            pnlButtons.Controls.Add(btnSettings);
             pnlButtons.Dock    = DockStyle.Top;
             pnlButtons.Height  = 46;
             pnlButtons.Padding = new Padding(4);
@@ -43,6 +45,12 @@ namespace PTTCrawler.Forms
             btnViewPosts.Size     = new Size(90, 30);
             btnViewPosts.Location = new Point(106, 6);
             btnViewPosts.Click   += btnViewPosts_Click;
+
+            // ── btnSettings ───────────────────────────────────
+            btnSettings.Text     = "設定";
+            btnSettings.Size     = new Size(70, 30);
+            btnSettings.Location = new Point(204, 6);
+            btnSettings.Click   += btnSettings_Click;
 
             // ── lblConsoleLog ─────────────────────────────────
             lblConsoleLog.Text      = "系統日誌：";
@@ -87,6 +95,7 @@ namespace PTTCrawler.Forms
         private Panel               pnlButtons;
         private Button              btnCrawlTasks;
         private Button              btnViewPosts;
+        private Button              btnSettings;
         private Label               lblConsoleLog;
         private RichTextBox         tbConsoleLog;
         private StatusStrip         statusStrip;

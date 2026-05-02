@@ -43,6 +43,12 @@ namespace PTTCrawler.Forms
             }
         }
 
+        private void btnSettings_Click(object sender, EventArgs e)
+        {
+            using var dlg = new SettingsForm(_db);
+            dlg.ShowDialog(this);
+        }
+
         protected override void OnFormClosing(FormClosingEventArgs e)
         {
             AppLogger.Info("PTT Crawler 關閉。");

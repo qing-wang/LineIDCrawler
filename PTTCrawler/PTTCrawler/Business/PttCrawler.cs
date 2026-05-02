@@ -90,6 +90,7 @@ namespace PTTCrawler.Business
                         {
                             skipped++;
                             AppLogger.Debug($"已存在，略過：{item.PostId}");
+                            _db.LinkPostToTask(task.Id, item.PostId); // 仍記錄任務關聯
                             continue;
                         }
 
@@ -100,6 +101,7 @@ namespace PTTCrawler.Business
 
                         var post = PttHtmlParser.ParsePostContent(postHtml, item.PostId, postUrl);
                         _db.InsertPost(post);
+                        _db.LinkPostToTask(task.Id, item.PostId);
                         newPosts++;
                         AppLogger.Info($"新增貼文：{post.Title}（作者：{post.AuthorId}）");
 

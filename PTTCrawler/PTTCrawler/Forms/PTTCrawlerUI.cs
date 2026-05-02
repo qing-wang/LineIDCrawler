@@ -7,6 +7,7 @@ namespace PTTCrawler.Forms
     {
         private readonly DatabaseManager _db;
         private CrawlTaskManagerForm?    _taskMgrForm;
+        private PostBrowserForm?         _postBrowserForm;
 
         public PTTCrawlerUI()
         {
@@ -18,7 +19,6 @@ namespace PTTCrawler.Forms
 
         private void btnCrawlTasks_Click(object sender, EventArgs e)
         {
-            // modeless 單例：若已開啟則聚焦
             if (_taskMgrForm == null || _taskMgrForm.IsDisposed)
             {
                 _taskMgrForm = new CrawlTaskManagerForm(_db);
@@ -30,10 +30,24 @@ namespace PTTCrawler.Forms
             }
         }
 
+        private void btnViewPosts_Click(object sender, EventArgs e)
+        {
+            if (_postBrowserForm == null || _postBrowserForm.IsDisposed)
+            {
+                _postBrowserForm = new PostBrowserForm(_db);
+                _postBrowserForm.Show(this);
+            }
+            else
+            {
+                _postBrowserForm.Focus();
+            }
+        }
+
         protected override void OnFormClosing(FormClosingEventArgs e)
         {
             AppLogger.Info("PTT Crawler 關閉。");
             _taskMgrForm?.Close();
+            _postBrowserForm?.Close();
             _db.Dispose();
             base.OnFormClosing(e);
         }

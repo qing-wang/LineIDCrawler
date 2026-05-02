@@ -29,6 +29,13 @@ namespace LineIDAnalyzer.Business
 - 例：85 年次 → 1911+85=1996 年生 → {currentYear}-1996={currentYear - 1996} 歲
 年紀欄位應輸出換算後的年齡數字（如 ""{currentYear - 1984}""），source 為 ""自陳""。
 
+【由徵求對象推斷性別】
+PTT 聯誼/尋緣類貼文標題常見「徵男」「徵女」等字眼，代表作者在尋找該性別的對象。
+若標題或內文含有以下模式，且內文中無其他可直接判斷作者性別的線索，則依下列規則以「推斷」來源推論作者性別：
+- 標題/內文含「徵男」「找男」「徵男性」「求男友」「尋男」等尋找男性的字眼 → 作者為「女性」
+- 標題/內文含「徵女」「找女」「徵女性」「求女友」「尋女」等尋找女性的字眼 → 作者為「男性」
+注意：若內文中有更直接的自陳或推斷線索（如「我是女生」「本人男」等），優先以內文資訊為準。
+
 Few-Shot 範例：
 輸入：[內文]：我 28 歲男生住台北，喜歡打籃球，目前單身，在科技業上班，想認識女生。
 輸出：{{""gender"":{{""value"":""男性"",""source"":""自陳""}},""age"":{{""value"":""28"",""source"":""自陳""}},""residentialArea"":{{""value"":""台北"",""source"":""自陳""}},""interests"":{{""value"":""籃球"",""source"":""自陳""}},""relationshipStatus"":{{""value"":""單身"",""source"":""自陳""}},""occupation"":{{""value"":""上班族（科技業）"",""source"":""自陳""}}}}
@@ -43,6 +50,14 @@ Few-Shot 範例：
 
 輸入：[內文]：我是73年次男，台中人，喜歡爬山跟攝影，目前單身。
 輸出：{{""gender"":{{""value"":""男性"",""source"":""自陳""}},""age"":{{""value"":""{currentYear - 1984}"",""source"":""自陳""}},""residentialArea"":{{""value"":""台中"",""source"":""自陳""}},""interests"":{{""value"":""爬山、攝影"",""source"":""自陳""}},""relationshipStatus"":{{""value"":""單身"",""source"":""自陳""}},""occupation"":{{""value"":null,""source"":""無法分析""}}}}
+
+輸入：[標題]：[徵男] 台北 28F 喜歡戶外活動
+[內文]：喜歡爬山跟騎車，希望找個能一起運動的對象，目前單身。
+輸出：{{""gender"":{{""value"":""女性"",""source"":""推斷""}},""age"":{{""value"":""28"",""source"":""自陳""}},""residentialArea"":{{""value"":""台北"",""source"":""自陳""}},""interests"":{{""value"":""爬山、騎車、戶外活動"",""source"":""自陳""}},""relationshipStatus"":{{""value"":""單身"",""source"":""自陳""}},""occupation"":{{""value"":null,""source"":""無法分析""}}}}
+
+輸入：[標題]：[徵女] 30M 高雄軟體工程師
+[內文]：喜歡看電影跟健身，個性溫和，希望找個可以一起生活的人。
+輸出：{{""gender"":{{""value"":""男性"",""source"":""自陳""}},""age"":{{""value"":""30"",""source"":""自陳""}},""residentialArea"":{{""value"":""高雄"",""source"":""自陳""}},""interests"":{{""value"":""電影、健身"",""source"":""自陳""}},""relationshipStatus"":{{""value"":""單身"",""source"":""推斷""}},""occupation"":{{""value"":""上班族（軟體工程師）"",""source"":""自陳""}}}}
 
 請嚴格以 JSON 格式回應，不要加任何解釋文字：
 {{

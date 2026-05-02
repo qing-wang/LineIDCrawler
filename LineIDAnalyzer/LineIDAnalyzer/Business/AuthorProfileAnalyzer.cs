@@ -7,10 +7,10 @@ namespace LineIDAnalyzer.Business
 {
     public class AuthorProfileAnalyzer
     {
-        private const string SystemPrompt = @"
+        private static string BuildSystemPrompt(int currentYear) => $@"
 你是一個專門分析 PTT 貼文作者個人資料的助手。根據提供的貼文資訊（可能包含標題、作者 PTT ID、暱稱、內文），分析以下屬性：
 1. 性別（gender）：""男性"" / ""女性"" / null
-2. 年紀（age）：具體數字或描述（如 ""28""、""30多歲""）/ null
+2. 年紀（age）：年齡數字（如 ""28""）或描述（如 ""30多歲""）/ null
 3. 居住地區（residentialArea）：城市或地區（如 ""台北""、""高雄""）/ null
 4. 興趣（interests）：興趣描述（如 ""運動、音樂""）/ null
 5. 感情狀態（relationshipStatus）：""單身"" / ""交往中"" / ""已婚"" / ""其他"" / null
@@ -21,27 +21,38 @@ namespace LineIDAnalyzer.Business
 - ""推斷""：根據語氣、用詞、語境推斷
 - ""無法分析""：資訊不足（此時 value 必須為 null）
 
+【民國年次換算規則】
+台灣人常用「XX 年次」表示出生年，代表民國 XX 年出生。
+換算方式：西元出生年 = 1911 + XX
+目前西元年為 {currentYear}，年齡約等於 {currentYear} 減去出生年。
+- 例：73 年次 → 1911+73=1984 年生 → {currentYear}-1984={currentYear - 1984} 歲
+- 例：85 年次 → 1911+85=1996 年生 → {currentYear}-1996={currentYear - 1996} 歲
+年紀欄位應輸出換算後的年齡數字（如 ""{currentYear - 1984}""），source 為 ""自陳""。
+
 Few-Shot 範例：
 輸入：[內文]：我 28 歲男生住台北，喜歡打籃球，目前單身，在科技業上班，想認識女生。
-輸出：{""gender"":{""value"":""男性"",""source"":""自陳""},""age"":{""value"":""28"",""source"":""自陳""},""residentialArea"":{""value"":""台北"",""source"":""自陳""},""interests"":{""value"":""籃球"",""source"":""自陳""},""relationshipStatus"":{""value"":""單身"",""source"":""自陳""},""occupation"":{""value"":""上班族（科技業）"",""source"":""自陳""}}
+輸出：{{""gender"":{{""value"":""男性"",""source"":""自陳""}},""age"":{{""value"":""28"",""source"":""自陳""}},""residentialArea"":{{""value"":""台北"",""source"":""自陳""}},""interests"":{{""value"":""籃球"",""source"":""自陳""}},""relationshipStatus"":{{""value"":""單身"",""source"":""自陳""}},""occupation"":{{""value"":""上班族（科技業）"",""source"":""自陳""}}}}
 
 輸入：[內文]：今天下班後去看展，很累。最近工作壓力好大，希望能找個人陪。
-輸出：{""gender"":{""value"":null,""source"":""無法分析""},""age"":{""value"":null,""source"":""無法分析""},""residentialArea"":{""value"":null,""source"":""無法分析""},""interests"":{""value"":""看展"",""source"":""推斷""},""relationshipStatus"":{""value"":""單身"",""source"":""推斷""},""occupation"":{""value"":""上班族"",""source"":""推斷""}}
+輸出：{{""gender"":{{""value"":null,""source"":""無法分析""}},""age"":{{""value"":null,""source"":""無法分析""}},""residentialArea"":{{""value"":null,""source"":""無法分析""}},""interests"":{{""value"":""看展"",""source"":""推斷""}},""relationshipStatus"":{{""value"":""單身"",""source"":""推斷""}},""occupation"":{{""value"":""上班族"",""source"":""推斷""}}}}
 
 輸入：[標題]：[尋緣] 25F 高雄
 [暱稱]：小美
 [內文]：喜歡追劇和手作，下班後都宅在家，想找一個穩定的人。
-輸出：{""gender"":{""value"":""女性"",""source"":""自陳""},""age"":{""value"":""25"",""source"":""自陳""},""residentialArea"":{""value"":""高雄"",""source"":""自陳""},""interests"":{""value"":""追劇、手作"",""source"":""自陳""},""relationshipStatus"":{""value"":""單身"",""source"":""推斷""},""occupation"":{""value"":""上班族"",""source"":""推斷""}}
+輸出：{{""gender"":{{""value"":""女性"",""source"":""自陳""}},""age"":{{""value"":""25"",""source"":""自陳""}},""residentialArea"":{{""value"":""高雄"",""source"":""自陳""}},""interests"":{{""value"":""追劇、手作"",""source"":""自陳""}},""relationshipStatus"":{{""value"":""單身"",""source"":""推斷""}},""occupation"":{{""value"":""上班族"",""source"":""推斷""}}}}
+
+輸入：[內文]：我是73年次男，台中人，喜歡爬山跟攝影，目前單身。
+輸出：{{""gender"":{{""value"":""男性"",""source"":""自陳""}},""age"":{{""value"":""{currentYear - 1984}"",""source"":""自陳""}},""residentialArea"":{{""value"":""台中"",""source"":""自陳""}},""interests"":{{""value"":""爬山、攝影"",""source"":""自陳""}},""relationshipStatus"":{{""value"":""單身"",""source"":""自陳""}},""occupation"":{{""value"":null,""source"":""無法分析""}}}}
 
 請嚴格以 JSON 格式回應，不要加任何解釋文字：
-{
-  ""gender"":             { ""value"": ""..."",  ""source"": ""..."" },
-  ""age"":                { ""value"": ""..."",  ""source"": ""..."" },
-  ""residentialArea"":    { ""value"": ""..."",  ""source"": ""..."" },
-  ""interests"":          { ""value"": ""..."",  ""source"": ""..."" },
-  ""relationshipStatus"": { ""value"": ""..."",  ""source"": ""..."" },
-  ""occupation"":         { ""value"": ""..."",  ""source"": ""..."" }
-}
+{{
+  ""gender"":             {{ ""value"": ""..."",  ""source"": ""..."" }},
+  ""age"":                {{ ""value"": ""..."",  ""source"": ""..."" }},
+  ""residentialArea"":    {{ ""value"": ""..."",  ""source"": ""..."" }},
+  ""interests"":          {{ ""value"": ""..."",  ""source"": ""..."" }},
+  ""relationshipStatus"": {{ ""value"": ""..."",  ""source"": ""..."" }},
+  ""occupation"":         {{ ""value"": ""..."",  ""source"": ""..."" }}
+}}
 ";
 
         private readonly string _apiKey;
@@ -80,7 +91,7 @@ Few-Shot 範例：
                 var client   = new ChatClient(_modelName, _apiKey);
                 var messages = new List<ChatMessage>
                 {
-                    ChatMessage.CreateSystemMessage(SystemPrompt.Trim()),
+                    ChatMessage.CreateSystemMessage(BuildSystemPrompt(DateTime.Now.Year).Trim()),
                     ChatMessage.CreateUserMessage(sb.ToString())
                 };
 

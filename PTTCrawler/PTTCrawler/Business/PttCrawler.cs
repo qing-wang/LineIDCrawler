@@ -1,3 +1,4 @@
+using System.Net;
 using PTTCrawler.Data;
 using PTTCrawler.Logging;
 using PTTCrawler.Models;
@@ -26,18 +27,33 @@ namespace PTTCrawler.Business
 
         private static HttpClient CreateHttpClient()
         {
-            var handler = new HttpClientHandler
+            var cookies = new CookieContainer();
+            cookies.Add(new Uri("https://www.ptt.cc"), new Cookie("over18", "1"));
+
+            var handler = new SocketsHttpHandler
             {
-                CookieContainer = new System.Net.CookieContainer(),
-                UseCookies      = true
+                CookieContainer        = cookies,
+                UseCookies             = true,
+                AutomaticDecompression = DecompressionMethods.GZip
+                                       | DecompressionMethods.Deflate
+                                       | DecompressionMethods.Brotli,
+                SslOptions = new System.Net.Security.SslClientAuthenticationOptions
+                {
+                    EnabledSslProtocols =
+                        System.Security.Authentication.SslProtocols.Tls12 |
+                        System.Security.Authentication.SslProtocols.Tls13
+                },
+                PooledConnectionLifetime = TimeSpan.FromMinutes(5)
             };
+
             var client = new HttpClient(handler);
             client.DefaultRequestHeaders.Add("User-Agent",
-                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/124 Safari/537.36");
-
-            // PTT 年齡驗證
-            var pttUri = new Uri("https://www.ptt.cc");
-            handler.CookieContainer.Add(pttUri, new System.Net.Cookie("over18", "1"));
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36");
+            client.DefaultRequestHeaders.Add("Accept",
+                "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8");
+            client.DefaultRequestHeaders.Add("Accept-Language", "zh-TW,zh;q=0.9,en-US;q=0.8,en;q=0.7");
+            client.DefaultRequestHeaders.Add("Accept-Encoding", "gzip, deflate, br");
+            client.DefaultRequestHeaders.Add("Connection",       "keep-alive");
 
             return client;
         }
@@ -166,9 +182,25 @@ namespace PTTCrawler.Business
 
         private async Task<string> FetchAsync(string url, CancellationToken ct)
         {
-            using var resp = await _http.GetAsync(url, ct);
-            resp.EnsureSuccessStatusCode();
-            return await resp.Content.ReadAsStringAsync(ct);
+            const int maxRetries = 3;
+            for (int attempt = 1; attempt <= maxRetries; attempt++)
+            {
+                try
+                {
+                    using var resp = await _http.GetAsync(url, ct);
+                    resp.EnsureSuccessStatusCode();
+                    return await resp.Content.ReadAsStringAsync(ct);
+                }
+                catch (HttpRequestException ex) when (attempt < maxRetries)
+                {
+                    AppLogger.Debug($"第 {attempt} 次請求失敗（{ex.Message}），稍後重試…");
+                    await Task.Delay(TimeSpan.FromSeconds(attempt * 2), ct);
+                }
+            }
+            // 最後一次，讓例外往上傳
+            using var finalResp = await _http.GetAsync(url, ct);
+            finalResp.EnsureSuccessStatusCode();
+            return await finalResp.Content.ReadAsStringAsync(ct);
         }
 
         private static string ToAbsolute(string href)

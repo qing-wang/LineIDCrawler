@@ -47,7 +47,7 @@ namespace PTTCrawler.Business
                 var aNode = ent.SelectSingleNode(".//div[@class='title']/a");
                 if (aNode == null) continue;   // 已刪除
 
-                var href  = aNode.GetAttributeValue("href", "");
+                var href  = HtmlEntity.DeEntitize(aNode.GetAttributeValue("href", ""));
                 var title = HtmlEntity.DeEntitize(aNode.InnerText.Trim());
                 var postId = ExtractPostId(href);
                 if (string.IsNullOrEmpty(postId)) continue;
@@ -79,7 +79,8 @@ namespace PTTCrawler.Business
                 if (node.InnerText.Contains("上頁"))
                 {
                     var href = node.GetAttributeValue("href", "");
-                    return string.IsNullOrEmpty(href) ? null : href;
+                    if (string.IsNullOrEmpty(href)) return null;
+                    return HtmlEntity.DeEntitize(href);   // 解碼 &amp; → &
                 }
             }
             return null;

@@ -16,8 +16,7 @@ namespace LineIDAnalyzer.Business
     public class LineIDAnalyzer
     {
         // ── Stage 1：關鍵字清單 ───────────────────────────────
-        // 只要文字中含有任何一個關鍵字，就進入 Stage 2。
-        // 使用小寫比對，呼叫端需先 ToLowerInvariant()。
+        // 用於快速比對明確的複合詞組（例：line帳號、加我line）。
         private static readonly string[] LineKeywords =
         {
             "line id", "line i.d", "lineid",
@@ -27,6 +26,13 @@ namespace LineIDAnalyzer.Business
             "line是", "line：", "line:", "line的id", "line的帳號",
             "賴:", "賴：", "加賴", "加我賴", "我的賴", "賴帳號", "賴id",
         };
+
+        // LINE 作為獨立詞的 Regex（不可是英文單字的一部分）
+        // (?<![a-zA-Z]) 確保前面不是英文字母，(?![a-zA-Z]) 確保後面不是英文字母
+        // 因此 "online" / "deadline" 不命中，但 "LINE我" / "可以LINE" / "LINE 給我" 都命中
+        private static readonly Regex StandaloneLineRegex = new(
+            @"(?<![a-zA-Z])line(?![a-zA-Z])",
+            RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
         // ── Stage 2：LLM System Prompt ────────────────────────
         private const string SystemPrompt = @"
@@ -59,6 +65,9 @@ Few-Shot 範例：
 
 輸入：「加我 line 或 ig 都行：line/john_doe、ig/john_doe_art」
 輸出：{""hasLineId"": true, ""extractedIds"": [""john_doe""]}
+
+輸入：「可以LINE我有真相 nexus0814」
+輸出：{""hasLineId"": true, ""extractedIds"": [""nexus0814""]}
 
 請嚴格以 JSON 格式回應，不要加上任何解釋文字：
 {
@@ -150,12 +159,21 @@ Few-Shot 範例：
         // ── Stage 1：關鍵字判斷 ───────────────────────────────
 
         /// <summary>
-        /// 判斷文字中是否含有任何 LINE 相關關鍵字（大小寫不敏感）。
+        /// 判斷文字中是否含有任何 LINE 相關訊號。
+        /// 兩種判斷方式，任一命中即進入 Stage 2：
+        ///   1. 複合詞組清單（例：line帳號、加我line）
+        ///   2. LINE 作為獨立詞（例：LINE我、可以LINE、傳LINE給我）
         /// </summary>
         public static bool ContainsLineKeyword(string text)
         {
             var lower = text.ToLowerInvariant();
-            return LineKeywords.Any(lower.Contains);
+
+            // 方式一：複合詞組（快速 Contains）
+            if (LineKeywords.Any(lower.Contains))
+                return true;
+
+            // 方式二：LINE 作為獨立詞（Regex，排除 online/deadline 等英文字詞）
+            return StandaloneLineRegex.IsMatch(text);
         }
 
         // ── Stage 2：LLM 呼叫 ────────────────────────────────

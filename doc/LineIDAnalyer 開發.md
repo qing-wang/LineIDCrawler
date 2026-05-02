@@ -44,8 +44,16 @@
     * 建立一個叫做 DatabaseManager 的類別來提供所有對資料庫存取的 methods。
     * 記得將 ExecuteReader 的使用改為具體的 using 區塊以確保 reader 在變更 CommandText 前關閉
 
-# 有任何我遺漏、你覺得需要加上的功能，再跟我建議。另外，有任何沒考慮周到的地方，也請你補充。            
+# 有任何我遺漏、你覺得需要加上的功能，再跟我建議。另外，有任何沒考慮周到的地方，也請你補充。
 
 
 # 現在開始設計從一段文字中分析寫該段文字的人是否有在該文字中留下 Line 的 ID，以及如果有的話，他留下的 Line ID 為何。
     * 針對這個演算方法，你有什麼建議或看法？
+
+# 增加一個直接執行所有測試案例的功能
+    * 所有在 C:\Users\USER\work\LineIDCrawler\LineIDAnalyzer\testcases\lineid 下的都有含 line id
+        + 執行後把所有的 line id 都輸出在主表單上
+        + 若有分析不出來時，視為測試失敗
+    * 所有在 C:\Users\USER\work\LineIDCrawler\LineIDAnalyzer\testcases\nolineid 下的都不含 line id
+        + 若有分析出來者，視為測試失敗
+    * 有任何我遺漏、你覺得需要加上的，再跟我建議。另外，有任何沒考慮周到的地方，也請你補充。

@@ -14,12 +14,13 @@ namespace LineIDAnalyzer.Forms
         private void InitializeComponent()
         {
             // ── Controls ─────────────────────────────────────
-            pnlButtons       = new Panel();
-            btnAnalyze       = new Button();
-            btnSettings      = new Button();
-            btnClear         = new Button();
-            btnCopyResult    = new Button();
+            pnlButtons        = new Panel();
+            btnAnalyze        = new Button();
+            btnSettings       = new Button();
+            btnClear          = new Button();
+            btnCopyResult     = new Button();
             btnCancelAnalysis = new Button();
+            btnRunTests       = new Button();
 
             lblInputText     = new Label();
             tbInputText      = new TextBox();
@@ -40,6 +41,7 @@ namespace LineIDAnalyzer.Forms
             pnlButtons.Height  = 44;
             pnlButtons.Padding = new Padding(8, 6, 8, 4);
             pnlButtons.Controls.Add(btnCancelAnalysis);
+            pnlButtons.Controls.Add(btnRunTests);
             pnlButtons.Controls.Add(btnCopyResult);
             pnlButtons.Controls.Add(btnClear);
             pnlButtons.Controls.Add(btnSettings);
@@ -75,6 +77,12 @@ namespace LineIDAnalyzer.Forms
             btnCancelAnalysis.Location = new Point(370, 6);
             btnCancelAnalysis.Enabled  = false;
             btnCancelAnalysis.Click   += btnCancelAnalysis_Click;
+
+            // ── btnRunTests ───────────────────────────────────
+            btnRunTests.Text     = "執行測試";
+            btnRunTests.Size     = new Size(90, 30);
+            btnRunTests.Location = new Point(458, 6);
+            btnRunTests.Click   += btnRunTests_Click;
 
             // ── lblInputText ──────────────────────────────────
             lblInputText.Text     = "待分析文字：";
@@ -154,6 +162,7 @@ namespace LineIDAnalyzer.Forms
         private Button            btnClear;
         private Button            btnCopyResult;
         private Button            btnCancelAnalysis;
+        private Button            btnRunTests;
         private Label             lblInputText;
         private TextBox           tbInputText;
         private Label             lblAnalysisResult;

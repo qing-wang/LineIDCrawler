@@ -8,8 +8,9 @@ namespace LineIDAnalyzer.Forms
 {
     public partial class LineIDAnalyzerUI : Form
     {
-        private readonly DatabaseManager         _db;
-        private CancellationTokenSource?         _analysisCts;
+        private readonly DatabaseManager _db;
+        private CancellationTokenSource? _analysisCts;
+        private CancellationTokenSource? _testRunCts;
 
         public LineIDAnalyzerUI()
         {
@@ -134,18 +135,101 @@ namespace LineIDAnalyzer.Forms
         private void btnCancelAnalysis_Click(object sender, EventArgs e)
         {
             _analysisCts?.Cancel();
-            AppLogger.Info("使用者取消分析。");
+            _testRunCts?.Cancel();
+            AppLogger.Info("使用者取消操作。");
+        }
+
+        private async void btnRunTests_Click(object sender, EventArgs e)
+        {
+            var apiKey = _db.LoadApiKey();
+            if (string.IsNullOrEmpty(apiKey))
+            {
+                AppLogger.Error("尚未設定 API Key，無法執行測試。");
+                MessageBox.Show("尚未設定 API Key，請先至「設定」頁面輸入。", "缺少設定",
+                    MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            // 計算測試案例數量，若無則提示
+            var testCasesRoot = Path.Combine(AppContext.BaseDirectory, "testcases");
+            var lineIdDir   = Path.Combine(testCasesRoot, "lineid");
+            var noLineIdDir = Path.Combine(testCasesRoot, "nolineid");
+            var totalCount  = (Directory.Exists(lineIdDir)   ? Directory.GetFiles(lineIdDir,   "*.txt").Length : 0)
+                            + (Directory.Exists(noLineIdDir) ? Directory.GetFiles(noLineIdDir, "*.txt").Length : 0);
+
+            if (totalCount == 0)
+            {
+                AppLogger.Info($"測試目錄中尚無任何 .txt 測試案例（路徑：{testCasesRoot}）。");
+                MessageBox.Show(
+                    $"測試目錄中尚無任何 .txt 檔案。\n\n請將測試案例放入：\n  {lineIdDir}\n  {noLineIdDir}",
+                    "沒有測試案例", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+
+            SetTestRunningState(true);
+            AppLogger.Info($"開始執行測試，共 {totalCount} 個測試案例…");
+
+            try
+            {
+                var modelName = _db.GetSetting("model_name") ?? "gpt-4o-mini";
+                var settings  = new AppSettings { ApiKey = apiKey, ModelName = modelName };
+                var runner    = new TestRunner(settings, testCasesRoot);
+
+                _testRunCts = new CancellationTokenSource();
+
+                var progress = new Progress<TestProgress>(p =>
+                {
+                    SetStatusText($"測試中：{p.Current} / {p.Total}　{p.CurrentFileName}", Color.DarkBlue);
+                    AppLogger.Debug($"[{p.Current}/{p.Total}] 正在分析：{p.CurrentFileName}");
+                });
+
+                var summary = await runner.RunAllAsync(progress, _testRunCts.Token);
+
+                AppLogger.Info($"測試完成：共 {summary.Total} 個，通過 {summary.Passed}，失敗 {summary.Failed}，耗時 {summary.TotalDuration.TotalSeconds:F1} 秒。");
+
+                if (summary.Failed == 0)
+                    SetStatusText($"✅ 全部 {summary.Total} 個測試通過！", Color.DarkGreen);
+                else
+                    SetStatusText($"❌ {summary.Failed} 個測試失敗（共 {summary.Total} 個）", Color.Red);
+
+                using var resultForm = new TestResultForm(summary);
+                resultForm.ShowDialog(this);
+            }
+            catch (OperationCanceledException)
+            {
+                AppLogger.Info("測試執行已被使用者取消。");
+                SetStatusText("測試已取消。", SystemColors.ControlText);
+            }
+            catch (Exception ex)
+            {
+                AppLogger.Error("執行測試時發生未預期的例外", ex);
+                SetStatusText("測試執行時發生錯誤，請查看 Console Log。", Color.Red);
+            }
+            finally
+            {
+                _testRunCts?.Dispose();
+                _testRunCts = null;
+                SetTestRunningState(false);
+            }
         }
 
         // ── 輔助方法 ──────────────────────────────────────────
 
         private void SetAnalyzingState(bool isAnalyzing)
         {
-            btnAnalyze.Enabled       = !isAnalyzing;
+            btnAnalyze.Enabled        = !isAnalyzing;
+            btnRunTests.Enabled       = !isAnalyzing;
             btnCancelAnalysis.Enabled = isAnalyzing;
 
             if (isAnalyzing)
                 SetStatusText("分析中，請稍候…", Color.DarkBlue);
+        }
+
+        private void SetTestRunningState(bool isRunning)
+        {
+            btnAnalyze.Enabled        = !isRunning;
+            btnRunTests.Enabled       = !isRunning;
+            btnCancelAnalysis.Enabled = isRunning;
         }
 
         private void SetStatusText(string text, Color color)
@@ -160,6 +244,7 @@ namespace LineIDAnalyzer.Forms
         {
             AppLogger.Info("應用程式關閉。");
             _analysisCts?.Cancel();
+            _testRunCts?.Cancel();
             _db.Dispose();
             base.OnFormClosing(e);
         }

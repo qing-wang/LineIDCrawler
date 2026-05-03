@@ -13,6 +13,9 @@ namespace PTTCrawler.Business
         public string  CurrentTitle  { get; set; } = string.Empty;
     }
 
+    public class PostNotFoundException(string url)
+        : Exception($"貼文不存在（404）：{url}") { }
+
     public class PttCrawler
     {
         private static readonly Random _rng = new();
@@ -113,7 +116,17 @@ namespace PTTCrawler.Business
                         // 爬取貼文內容頁
                         string postUrl  = ToAbsolute(item.Href);
                         AppLogger.Debug($"爬取貼文：{item.Title}（{item.PostId}）");
-                        string postHtml = await FetchAsync(postUrl, ct);
+                        string postHtml;
+                        try
+                        {
+                            postHtml = await FetchAsync(postUrl, ct);
+                        }
+                        catch (PostNotFoundException)
+                        {
+                            skipped++;
+                            AppLogger.Debug($"貼文已不存在（404），略過：{item.PostId}");
+                            continue;
+                        }
 
                         var post = PttHtmlParser.ParsePostContent(postHtml, item.PostId, postUrl);
                         _db.InsertPost(post);
@@ -182,23 +195,45 @@ namespace PTTCrawler.Business
 
         private async Task<string> FetchAsync(string url, CancellationToken ct)
         {
-            const int maxRetries = 3;
+            const int maxRetries = 5;
             for (int attempt = 1; attempt <= maxRetries; attempt++)
             {
                 try
                 {
                     using var resp = await _http.GetAsync(url, ct);
-                    resp.EnsureSuccessStatusCode();
-                    return await resp.Content.ReadAsStringAsync(ct);
+
+                    // 404：文章已不存在，不重試，直接通知呼叫端略過
+                    if (resp.StatusCode == System.Net.HttpStatusCode.NotFound)
+                        throw new PostNotFoundException(url);
+
+                    if (resp.IsSuccessStatusCode)
+                        return await resp.Content.ReadAsStringAsync(ct);
+
+                    // 其他非成功狀態碼：可重試
+                    throw new HttpRequestException(
+                        $"Response status code does not indicate success: {(int)resp.StatusCode} ({resp.ReasonPhrase}).");
                 }
-                catch (HttpRequestException ex) when (attempt < maxRetries)
+                catch (PostNotFoundException)
                 {
-                    AppLogger.Debug($"第 {attempt} 次請求失敗（{ex.Message}），稍後重試…");
-                    await Task.Delay(TimeSpan.FromSeconds(attempt * 2), ct);
+                    throw; // 404 不重試
+                }
+                catch (OperationCanceledException)
+                {
+                    throw; // 取消不重試
+                }
+                catch (Exception ex) when (attempt < maxRetries)
+                {
+                    // SSL 斷線、連線重置、非成功狀態碼 等都重試
+                    int delaySec = attempt <= 2 ? attempt * 2 : attempt * 5;
+                    AppLogger.Debug($"第 {attempt} 次請求失敗（{ex.Message}），{delaySec} 秒後重試…");
+                    await Task.Delay(TimeSpan.FromSeconds(delaySec), ct);
                 }
             }
+
             // 最後一次，讓例外往上傳
             using var finalResp = await _http.GetAsync(url, ct);
+            if (finalResp.StatusCode == System.Net.HttpStatusCode.NotFound)
+                throw new PostNotFoundException(url);
             finalResp.EnsureSuccessStatusCode();
             return await finalResp.Content.ReadAsStringAsync(ct);
         }
@@ -212,7 +247,7 @@ namespace PTTCrawler.Business
 
         private static async Task DelayAsync(CancellationToken ct)
         {
-            int ms = _rng.Next(500, 1001);
+            int ms = _rng.Next(800, 1500);
             await Task.Delay(ms, ct);
         }
     }

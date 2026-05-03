@@ -17,6 +17,7 @@ namespace PTTCrawler.Forms
             rbScopePage      = new RadioButton();
             rbScopeAll       = new RadioButton();
             btnStartAnalyze  = new Button();
+            btnExport        = new Button();
             pnlProgress      = new Panel();
             progressBar      = new ProgressBar();
             lblProgress      = new Label();
@@ -37,7 +38,7 @@ namespace PTTCrawler.Forms
             pnlTop.Dock    = DockStyle.Top;
             pnlTop.Height  = 44;
             pnlTop.Padding = new Padding(8, 6, 8, 4);
-            pnlTop.Controls.AddRange(new Control[] { lblScope, rbScopePage, rbScopeAll, btnStartAnalyze });
+            pnlTop.Controls.AddRange(new Control[] { lblScope, rbScopePage, rbScopeAll, btnStartAnalyze, btnExport });
 
             lblScope.Text     = "分析範圍：";
             lblScope.Location = new Point(8, 12);
@@ -56,6 +57,12 @@ namespace PTTCrawler.Forms
             btnStartAnalyze.Size     = new Size(90, 28);
             btnStartAnalyze.Location = new Point(290, 7);
             btnStartAnalyze.Click   += btnStartAnalyze_Click;
+
+            btnExport.Text     = "匯出 CSV";
+            btnExport.Size     = new Size(90, 28);
+            btnExport.Location = new Point(390, 7);
+            btnExport.Enabled  = false;
+            btnExport.Click   += btnExport_Click;
 
             // ── pnlProgress ───────────────────────────────────
             pnlProgress.Dock    = DockStyle.Top;
@@ -134,6 +141,7 @@ namespace PTTCrawler.Forms
         private RadioButton     rbScopePage;
         private RadioButton     rbScopeAll;
         private Button          btnStartAnalyze;
+        private Button          btnExport;
         private Panel           pnlProgress;
         private ProgressBar     progressBar;
         private Label           lblProgress;

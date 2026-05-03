@@ -1,3 +1,4 @@
+using System.Text;
 using PTTCrawler.Business;
 using PTTCrawler.Data;
 using PTTCrawler.Logging;
@@ -174,6 +175,7 @@ namespace PTTCrawler.Forms
 
             progressBar.Value = progressBar.Maximum;
             lblProgress.Text  = $"分析完成：{_withLineId.Count} 篇含 Line ID，{_withoutLineId.Count} 篇不含。";
+            btnExport.Enabled = _withLineId.Count > 0;
 
             // 含 Line ID
             grpWithLineId.Text = $"含 Line ID 的貼文（{_withLineId.Count} 篇）";
@@ -252,7 +254,83 @@ namespace PTTCrawler.Forms
             btnStartAnalyze.Text     = running ? "取消" : "開始分析";
             rbScopePage.Enabled      = !running;
             rbScopeAll.Enabled       = !running;
+            btnExport.Enabled        = !running && _withLineId.Count > 0;
             pnlProgress.Visible      = running || progressBar.Value > 0;
+        }
+
+        // ── 匯出 CSV ──────────────────────────────────────────
+
+        private void btnExport_Click(object sender, EventArgs e)
+        {
+            // 收集所有待匯出項目，先以 Line ID 去重（相同 Line ID 只保留最新一筆貼文）
+            var allItems = _withLineId
+                .SelectMany(x => x.LineIds.Select(id => (Post: x.Post, LineId: id)))
+                .GroupBy(x => x.LineId, StringComparer.OrdinalIgnoreCase)
+                .Select(g => g.First())
+                .ToList();
+
+            // 已匯出的 Line ID（忽略大小寫）
+            var exportedLineIds = _db.GetExportedLineIds();
+
+            int newCount   = allItems.Count(x => !exportedLineIds.Contains(x.LineId));
+            int totalCount = allItems.Count;
+
+            using var dlg = new ExportLineIdForm(newCount, totalCount);
+            if (dlg.ShowDialog(this) != DialogResult.OK) return;
+
+            var toExport = dlg.ExportNewOnly
+                ? allItems.Where(x => !exportedLineIds.Contains(x.LineId)).ToList()
+                : allItems;
+
+            if (toExport.Count == 0)
+            {
+                MessageBox.Show("沒有符合條件的 Line ID 可以匯出。",
+                    "提示", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+
+            try
+            {
+                WriteCsv(dlg.FilePath, toExport);
+                _db.MarkLineIdsAsExported(toExport.Select(x => (x.Post.Id, x.LineId)));
+                AppLogger.Info($"已匯出 {toExport.Count} 筆 Line ID 至：{dlg.FilePath}");
+                MessageBox.Show($"成功匯出 {toExport.Count} 筆 Line ID。\n\n{dlg.FilePath}",
+                    "匯出完成", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
+            catch (Exception ex)
+            {
+                AppLogger.Error($"匯出 CSV 失敗：{ex.Message}", ex);
+                MessageBox.Show($"匯出失敗：{ex.Message}",
+                    "錯誤", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
+        private static void WriteCsv(string path, List<(Post Post, string LineId)> items)
+        {
+            var sb = new StringBuilder();
+            // BOM，讓 Excel 正確開啟 UTF-8
+            sb.Append('\uFEFF');
+            sb.AppendLine("看版,貼文ID,標題,作者,作者暱稱,貼文時間,Line ID");
+            foreach (var (post, lineId) in items)
+            {
+                sb.AppendLine(string.Join(",",
+                    CsvField(post.Board),
+                    CsvField(post.Id),
+                    CsvField(post.Title),
+                    CsvField(post.AuthorId),
+                    CsvField(post.AuthorNick),
+                    CsvField(post.PostTime),
+                    CsvField(lineId)));
+            }
+            File.WriteAllText(path, sb.ToString(), new UTF8Encoding(true));
+        }
+
+        private static string CsvField(string? value)
+        {
+            if (string.IsNullOrEmpty(value)) return string.Empty;
+            if (value.Contains(',') || value.Contains('"') || value.Contains('\n'))
+                return "\"" + value.Replace("\"", "\"\"") + "\"";
+            return value;
         }
     }
 }

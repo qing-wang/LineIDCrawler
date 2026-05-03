@@ -211,3 +211,12 @@
 > C:\Users\USER\work\LineIDCrawler\LineIDAnalyzer\testcases\nolineid\3.txt 分析結果有含兩個 Line ID，但其中提到的 ID 是 PTT 上的 ID 而非 Line 的 ID。
 
 > C:\Users\USER\work\LineIDCrawler\LineIDAnalyzer\testcases\nolineid\3.txt 不含 Line ID，但分析結果為含 Line ID，且 Line ID 為 "line"
+
+# 貼文瀏覽的 "分析 Line ID" 功能應加上匯出功能
+    * 以 CSV 格式匯出
+        + 讓使用者指定輸出目錄及檔案名稱
+    * 已匯出過的 Line ID 需排除重複記錄已匯出過
+    * 匯出時可選擇
+        + 只匯出未匯出過的 Line ID
+        + 全部匯出
+    * 有任何我遺漏、你覺得需要加上的功能，再跟我建議。另外，有任何沒考慮周到的地方，也請你補充。

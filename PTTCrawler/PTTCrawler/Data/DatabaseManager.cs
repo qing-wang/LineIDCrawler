@@ -91,8 +91,13 @@ namespace PTTCrawler.Data
                     relationship_status TEXT,
                     relationship_source TEXT,
                     occupation          TEXT,
-                    occupation_source   TEXT,
-                    raw_response        TEXT
+                    occupation_source   TEXT
+                );
+                CREATE TABLE IF NOT EXISTS line_id_export_history (
+                    post_id     TEXT NOT NULL,
+                    line_id     TEXT NOT NULL,
+                    exported_at TEXT NOT NULL,
+                    PRIMARY KEY (post_id, line_id)
                 );";
             cmd.ExecuteNonQuery();
 
@@ -569,6 +574,45 @@ namespace PTTCrawler.Data
             cmd.Parameters.AddWithValue("$occSrc",   profile.Occupation.Source.ToString());
             cmd.Parameters.AddWithValue("$raw",      profile.RawResponse);
             cmd.ExecuteNonQuery();
+        }
+
+        // ── Line ID 匯出歷史 ──────────────────────────────────
+
+        /// <summary>回傳已匯出過的 Line ID 集合（不分大小寫）。</summary>
+        public HashSet<string> GetExportedLineIds()
+        {
+            var result = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            using var conn = OpenConnection();
+            using var cmd  = conn.CreateCommand();
+            cmd.CommandText = "SELECT DISTINCT line_id FROM line_id_export_history;";
+            using var reader = cmd.ExecuteReader();
+            while (reader.Read())
+                result.Add(reader.GetString(0));
+            return result;
+        }
+
+        /// <summary>將指定的 (post_id, line_id) 組合標記為已匯出。</summary>
+        public void MarkLineIdsAsExported(IEnumerable<(string PostId, string LineId)> items)
+        {
+            using var conn = OpenConnection();
+            using var tx   = conn.BeginTransaction();
+            using var cmd  = conn.CreateCommand();
+            cmd.CommandText =
+                "INSERT OR IGNORE INTO line_id_export_history (post_id, line_id, exported_at) " +
+                "VALUES ($pid, $lid, $at);";
+            var pPid = cmd.CreateParameter(); pPid.ParameterName = "$pid"; cmd.Parameters.Add(pPid);
+            var pLid = cmd.CreateParameter(); pLid.ParameterName = "$lid"; cmd.Parameters.Add(pLid);
+            var pAt  = cmd.CreateParameter(); pAt.ParameterName  = "$at";  cmd.Parameters.Add(pAt);
+
+            string now = DateTime.Now.ToString("o");
+            foreach (var (postId, lineId) in items)
+            {
+                pPid.Value = postId;
+                pLid.Value = lineId;
+                pAt.Value  = now;
+                cmd.ExecuteNonQuery();
+            }
+            tx.Commit();
         }
 
         public void Dispose()
